@@ -9,8 +9,8 @@ class apache::mod::dav_fs {
 
   # Template uses: $dav_lock
   file { 'dav_fs.conf':
-    ensure  => present,
-    path    => "${apache::params::mod_dir}/dav_fs.conf",
+    ensure  => file,
+    path    => "${apache::mod_dir}/dav_fs.conf",
     content => template('apache/mod/php.conf.erb'),
   }
 }

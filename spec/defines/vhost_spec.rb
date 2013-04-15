@@ -9,7 +9,6 @@ describe 'apache::vhost', :type => :define do
   end
   let :default_params do
     {
-      :docroot => '/rspec/docroot',
       :port    => '84',
     }
   end
@@ -169,10 +168,26 @@ describe 'apache::vhost', :type => :define do
           :match => ['  RackBaseURI /rack1','  RackBaseURI /rack2'],
         },
         {
+          :title => 'should accept request headers',
+          :attr  => 'request_headers',
+          :value => ['append something', 'unset something_else'],
+          :match => [
+            '  RequestHeader append something',
+            '  RequestHeader unset something_else',
+          ],
+        },
+        {
           :title => 'should accept rewrite rules',
           :attr  => 'rewrite_rule',
           :value => 'not a real rule',
           :match => '  RewriteRule not a real rule',
+        },
+        {
+          :title    => 'should accept custom content',
+          :attr     => 'content',
+          :value    => 'not a real vhost config',
+          :match    => 'not a real vhost config',
+          :notmatch => '</VirtualHost>',
         },
         {
           :title => 'should block scm',
@@ -196,6 +211,7 @@ describe 'apache::vhost', :type => :define do
     context 'attribute resources' do
       describe 'when docroot owner is specified' do
         let :params do default_params.merge({
+          :docroot       => '/rspec/docroot',
           :docroot_owner => 'testuser',
           :docroot_group => 'testgroup',
         }) end
@@ -205,6 +221,18 @@ describe 'apache::vhost', :type => :define do
             :owner  => 'testuser',
             :group  => 'testgroup',
           })
+        end
+      end
+
+      describe 'when rewrite_rule and rewrite_cond are specified' do
+        let :params do default_params.merge({
+          :rewrite_cond => '%{HTTPS} off',
+          :rewrite_rule => '(.*) https://%{HTTPS_HOST}%{REQUEST_URI}',
+        }) end
+        it 'should set RewriteCond' do
+          should contain_file("25-#{title}.conf").with_content(
+            /^  RewriteCond %{HTTPS} off$/
+          )
         end
       end
 

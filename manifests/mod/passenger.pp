@@ -16,8 +16,8 @@ class apache::mod::passenger (
   apache::mod { 'passenger': }
   # Template uses: $passenger_root, $passenger_ruby, $passenger_max_pool_size
   file { 'passenger.conf':
-    ensure  => present,
-    path    => "${apache::params::mod_dir}/passenger.conf",
+    ensure  => file,
+    path    => "${apache::mod_dir}/passenger.conf",
     content => template('apache/mod/passenger.conf.erb'),
     notify  => Service['httpd'],
   }

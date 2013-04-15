@@ -26,7 +26,11 @@ class apache (
   $purge_configs        = true,
   $serveradmin          = 'root@localhost',
   $sendfile             = false,
-  $error_documents      = false
+  $error_documents      = false,
+  $confd_dir            = $apache::params::confd_dir,
+  $vhost_dir            = $apache::params::vhost_dir,
+  $mod_dir              = $apache::params::mod_dir,
+  $mod_enable_dir       = $apache::params::mod_enable_dir
 ) inherits apache::params {
 
   package { 'httpd':
