@@ -24,13 +24,15 @@ class apache (
   $default_ssl_crl      = undef,
   $service_enable       = true,
   $purge_configs        = true,
+  $purge_vdir           = true,
   $serveradmin          = 'root@localhost',
   $sendfile             = false,
   $error_documents      = false,
   $confd_dir            = $apache::params::confd_dir,
   $vhost_dir            = $apache::params::vhost_dir,
   $mod_dir              = $apache::params::mod_dir,
-  $mod_enable_dir       = $apache::params::mod_enable_dir
+  $mod_enable_dir       = $apache::params::mod_enable_dir,
+  $mpm_module           = $apache::params::mpm_module,
 ) inherits apache::params {
 
   package { 'httpd':
@@ -42,6 +44,9 @@ class apache (
   validate_bool($default_vhost)
   # true/false is sufficient for both ensure and enable
   validate_bool($service_enable)
+  if $mpm_module {
+    validate_re($mpm_module, '(prefork|worker)')
+  }
 
   $user       = $apache::params::user
   $group      = $apache::params::group
@@ -51,14 +56,14 @@ class apache (
 
   # declare the web server user and group
   # Note: requiring the package means the package ought to create them and not puppet
-  group { $apache::params::group:
+  group { $group:
     ensure  => present,
     require => Package['httpd']
   }
 
-  user { $apache::params::user:
+  user { $user:
     ensure  => present,
-    gid     => $apache::params::group,
+    gid     => $group,
     require => Package['httpd'],
     before  => Service['httpd'],
   }
@@ -70,35 +75,57 @@ class apache (
     subscribe => Package['httpd'],
   }
 
-  file { $apache::params::confd_dir:
+  # Deprecated backwards-compatibility
+  if $purge_vdir {
+    warning("Class['apache'] parameter purge_vdir is deprecated in favor of purge_configs")
+    $purge_confd = $purge_vdir
+  } else {
+    $purge_confd = $purge_configs
+  }
+
+  file { $apache::confd_dir:
     ensure  => directory,
     recurse => true,
-    purge   => $purge_configs,
+    purge   => $purge_confd,
     notify  => Service['httpd'],
     require => Package['httpd'],
   }
 
-  file { $apache::params::mod_dir:
-    ensure  => directory,
-    recurse => true,
-    purge   => $purge_configs,
-    notify  => Service['httpd'],
-    require => Package['httpd'],
+  if ! defined(File[$apache::mod_dir]) {
+    file { $apache::mod_dir:
+      ensure  => directory,
+      recurse => true,
+      purge   => $purge_configs,
+      notify  => Service['httpd'],
+      require => Package['httpd'],
+    }
   }
 
-  file { $apache::params::vhost_dir:
-    ensure  => directory,
-    recurse => true,
-    purge   => $purge_configs,
-    notify  => Service['httpd'],
-    require => Package['httpd'],
+  if $apache::mod_enable_dir and ! defined(File[$apache::mod_enable_dir]) {
+    file { $apache::mod_enable_dir:
+      ensure  => directory,
+      recurse => true,
+      purge   => $purge_configs,
+      notify  => Service['httpd'],
+      require => Package['httpd'],
+    }
+  }
+
+  if ! defined(File[$apache::vhost_dir]) {
+    file { $apache::vhost_dir:
+      ensure  => directory,
+      recurse => true,
+      purge   => $purge_configs,
+      notify  => Service['httpd'],
+      require => Package['httpd'],
+    }
   }
 
   concat { $ports_file:
-    owner  => $user,
-    group  => $group,
+    owner  => 'root',
+    group  => 'root',
     mode   => '0644',
-    notify => Service[$apache::params::apache_name],
+    notify => Service['httpd'],
   }
   concat::fragment { "Apache ports header":
     target  => $ports_file,
@@ -139,13 +166,16 @@ class apache (
     # - $error_documents
     # - $error_documents_path
     file { "${apache::params::conf_dir}/${apache::params::conf_file}":
-      ensure  => present,
+      ensure  => file,
       content => template("apache/httpd.conf.erb"),
       notify  => Service['httpd'],
       require => Package['httpd'],
     }
     if $default_mods {
       include apache::default_mods
+    }
+    if $mpm_module {
+      class { "apache::mod::${mpm_module}": }
     }
     if $default_vhost {
       apache::vhost { 'default':
