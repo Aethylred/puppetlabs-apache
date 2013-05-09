@@ -98,7 +98,9 @@ class apache::params {
       'wsgi'       => 'libapache2-mod-wsgi',
       'shib2'   => 'libapache2-mod-shib2',
     }
-    $mod_libs         = {}
+    $mod_libs         = {
+      'php5' => 'libphp5.so',
+    }
   } else {
     fail("Class['apache::params']: Unsupported osfamily: ${::osfamily}")
   }
