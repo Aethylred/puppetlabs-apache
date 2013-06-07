@@ -305,9 +305,9 @@ define apache::vhost(
     $_directories = $directories
   } else {
     $_directories = [ {
-      path    => $docroot,
-      options => $options,
-      allowoverride => $allowoverride,
+      path          => $docroot,
+      options       => $options,
+      allowoverride => $override,
       order         => 'allow,deny',
       allow         => 'from all',
     } ]
