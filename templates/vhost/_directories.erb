@@ -1,24 +1,36 @@
-<% if @directories and ! @directories.empty? -%>
+<% if @_directories and ! @_directories.empty? -%>
+  <%- Array(@_directories).each do |directory| -%>
+    <%- if directory['path'] and directory['path'] != ''-%>
 
-  ## Directory declarations for resources outside the DocumentRoot
-  <%- Array(@directories).each do |directory| -%>
-    <%- if directory["path"] and directory["path"] != ''-%>
-
-  <Directory <%= directory["path"] %> >
-    <%- if directory["order"] and directory["order"] != '' -%>
-    Order <%= directory["order"] %>
+  <Directory <%= directory['path'] %>>
+    <%- if directory['options'] -%>
+    Options <%= Array(directory['options']).join(' ') %>
     <%- end -%>
-    <%- if directory["deny"] and directory["deny"] != '' -%>
-    Deny <%= directory["deny"] %>
+    <%- if directory['allowoverride'] -%>
+    AllowOverride <%= directory['allowoverride'].join(' ') %>
+    <%- else -%>
+    AllowOverride None
     <%- end -%>
-    <%- if directory["allow"] and directory["allow"] != '' -%>
-    Allow <%= directory["allow"] %>
+    <%- if directory['order'] and directory['order'] != '' -%>
+    Order <%= directory['order'] %>
+    <%- else -%>
+    Order allow,deny
     <%- end -%>
-    <%- if directory["allowOverride"] and directory["allowOverride"] != '' -%>
-    AllowOverride <%= directory["allowOverride"] %>
+    <%- if directory['deny'] and directory['deny'] != '' -%>
+    Deny <%= directory['deny'] %>
     <%- end -%>
-    <%- if directory["passengerEnabled"] and directory["passengerEnabled"] != '' -%>
-    PassengerEnabled <%= directory["passengerEnabled"] %>
+    <%- if directory['allow'] and directory['allow'] != '' -%>
+    Allow <%= directory['allow'] %>
+    <%- else -%>
+    Allow from all
+    <%- end -%>
+    <%- if directory['addhandlers'] and ! directory['addhandlers'].empty? -%>
+      <%- Array(directory['addhandlers']).each do |addhandler| -%>
+    AddHandler <%= addhandler['handler'] %> <%= addhandler['extensions'].join(' ') %>
+      <%- end -%>
+    <%- end -%>
+    <%- if directory['passengerEnabled'] and directory['passengerEnabled'] != '' -%>
+    PassengerEnabled <%= directory['passengerEnabled'] %>
     <%- end -%>
   </Directory>
     <%- end -%>

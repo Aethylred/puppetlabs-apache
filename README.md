@@ -191,6 +191,10 @@ Changes the location of the configuration directory your Apache modules configur
 
 Configures which mpm module is loaded and configured for the httpd process by the `apache::mod::prefork` and `apache::mod::worker` classes. Must be set to `false` to explicitly declare `apache::mod::worker` or `apache::mod::prefork` classes with parameters. Valid values are `worker`, `prefork`, or the boolean `false`. Defaults to `prefork` on RedHat and `worker` on Debian.
 
+#####`conf_template`
+
+Setting this allows you to override the template used for the main apache configuration file.  This is a potentially risky thing to do as this module has been built around the concept of a minimal configuration file with most of the configuration coming in the form of conf.d/ entries.  Defaults to 'apache/httpd.conf.erb'.
+
 ####Class: `apache::default_mods`
 
 Installs default Apache modules based on what OS you are running
@@ -329,7 +333,22 @@ Passes a list of hashes to the vhost to create `<Directory /path/to/directory>..
 directory => [ { path => '/path/to/directory', <directive> => <value> } ],
 ```
 
+*Note:* At least one directory should match `docroot` parameter, once you start declaring directories `apache::vhost` assumes that all required `<Directory>` blocks will be declared.
+
+*Note:* If not defined a single default `<Directory>` block will be created that matches the `docroot` parameter.
+
 The directives will be embedded within the `Directory` directive block, missing directives should be undefined and not be added, resulting in their default vaules in Apache. Currently this is the list of supported directives:
+
+######`addhandlers`
+
+Sets `AddHandler` directives as per the [Apache Core documentation](http://httpd.apache.org/docs/2.2/mod/mod_mime.html#addhandler). Accepts a list of hashes of the form `{ handler => 'handler-name', extensions => ['extension']}`. Note that `extensions` is a list of extenstions being handled by the handler.
+An example: 
+
+```ruby
+directory => [ { path => '/path/to/directory',
+  addhandlers => [ { handler => 'cgi-script', extensions => ['.cgi']} ]
+} ]
+```
 
 ######`allow`
 
@@ -341,10 +360,10 @@ directory => [ { path => '/path/to/directory', allow => 'from example.org' } ],
 
 ######`allowOverride`
 
-Sets the usage of `.htaccess` files as per the [Apache core documentation](http://httpd.apache.org/docs/2.2/mod/core.html#allowoverride). An example:
+Sets the usage of `.htaccess` files as per the [Apache core documentation](http://httpd.apache.org/docs/2.2/mod/core.html#allowoverride). Should accept in the form of a list or a string. An example:
 
 ```ruby
-directory => [ { path => '/path/to/directory', allowOverride => 'AuthConfig Indexes' } ],
+directory => [ { path => '/path/to/directory', allowOverride => ['AuthConfig', 'Indexes'] } ],
 ```
 
 ######`deny`
@@ -353,6 +372,14 @@ Sets an `Deny` directive as per the [Apache Core documentation](http://httpd.apa
 
 ```ruby
 directory => [ { path => '/path/to/directory', deny => 'from example.org' } ],
+```
+
+######`options`
+
+Lists the options for the given `<Directory>` block
+
+```ruby
+  directory => [ { path => '/path/to/directory', options => ['Indexes','FollowSymLinks','MultiViews'] }]
 ```
 
 ######`order`

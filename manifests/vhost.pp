@@ -280,9 +280,9 @@ define apache::vhost(
 
   # Configure firewall rules
   if $configure_firewall {
-    if ! defined(Firewall["0100-INPUT ACCEPT $port"]) {
+    if ! defined(Firewall["0100-INPUT ACCEPT ${port}"]) {
       @firewall {
-        "0100-INPUT ACCEPT $port":
+        "0100-INPUT ACCEPT ${port}":
           action => 'accept',
           dport  => $port,
           proto  => 'tcp'
@@ -300,6 +300,19 @@ define apache::vhost(
   ## Apache include does not always work with spaces in the filename
   $filename = regsubst($name, ' ', '_', 'G')
 
+  ## Create a default directory list if none defined
+  if $directories {
+    $_directories = $directories
+  } else {
+    $_directories = [ {
+      path          => $docroot,
+      options       => $options,
+      allowoverride => $override,
+      order         => 'allow,deny',
+      allow         => 'from all',
+    } ]
+  }
+
   # Template uses:
   # - $nvh_addr_port
   # - $servername_real
@@ -309,6 +322,8 @@ define apache::vhost(
   # - $override
   # - $logroot
   # - $name
+  # - $aliases
+  # - $_directories
   # - $access_log
   # - $access_log_destination
   # - $_access_log_format
