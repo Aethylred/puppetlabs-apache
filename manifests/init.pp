@@ -38,6 +38,7 @@ class apache (
   $servername           = $apache::params::servername,
   $user                 = $apache::params::user,
   $group                = $apache::params::group,
+  $keepalive            = $apache::params::keepalive,
 ) inherits apache::params {
 
   package { 'httpd':
@@ -165,10 +166,11 @@ class apache (
   }
 
   concat { $ports_file:
-    owner  => 'root',
-    group  => 'root',
-    mode   => '0644',
-    notify => Service['httpd'],
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0644',
+    notify  => Service['httpd'],
+    require => Package['httpd'],
   }
   concat::fragment { 'Apache ports header':
     target  => $ports_file,

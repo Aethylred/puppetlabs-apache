@@ -101,6 +101,7 @@ define apache::vhost(
     $scriptalias        = undef,
     $proxy_dest         = undef,
     $proxy_pass         = undef,
+    $sslproxyengine     = false,
     $no_proxy_uris      = [],
     $redirect_source    = '/',
     $redirect_dest      = undef,
@@ -130,6 +131,7 @@ define apache::vhost(
   validate_bool($error_log)
   validate_bool($ssl)
   validate_bool($default_vhost)
+  validate_bool($sslproxyengine)
 
   if $access_log_file and $access_log_pipe {
     fail("Apache::Vhost[${name}]: 'access_log_file' and 'access_log_pipe' cannot be defined at the same time")
@@ -170,20 +172,6 @@ define apache::vhost(
   # Is apache::mod::passenger enabled (or apache::mod['passenger'])
   $passenger_enabled = defined(Apache::Mod['passenger'])
 
-  # Template uses:
-  # - $vhost_name
-  # - $port
-  # - $srvname
-  # - $serveradmin
-  # - $serveraliases
-  # - $docroot
-  # - $options
-  # - $override
-  # - $logroot
-  # - $access_log
-  # - $name
-  # - $passenger_enabled
-  # - $rackbaseuri
   # Open listening ports if they are not already
   if $servername {
     $servername_real = $servername
@@ -339,6 +327,9 @@ define apache::vhost(
   # - $custom_fragment
   # block fragment:
   #   - $block
+  # directories fragment:
+  #   - $passenger_enabled
+  #   - $directories (a list of key-value hashes is expected)
   # proxy fragment:
   #   - $proxy_dest
   #   - $no_proxy_uris
