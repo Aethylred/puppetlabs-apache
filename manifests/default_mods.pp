@@ -1,5 +1,6 @@
 class apache::default_mods (
-  $all = true,
+  $all  = true,
+  $mods = undef,
 ) {
   # These are modules required to run the default configuration.
   # They are not configurable at this time, so we just include
@@ -20,6 +21,7 @@ class apache::default_mods (
       }
       'redhat': {
         include apache::mod::cache
+        include apache::mod::mime
         include apache::mod::mime_magic
         include apache::mod::vhost_alias
         apache::mod { 'actions': }
@@ -66,5 +68,7 @@ class apache::default_mods (
     apache::mod { 'authz_groupfile': }
     apache::mod { 'authz_user': }
     apache::mod { 'env': }
+  } elsif $mods {
+    apache::default_mods::load { $mods: }
   }
 }

@@ -59,63 +59,74 @@
 #
 define apache::vhost(
     $docroot,
-    $virtual_docroot    = false,
-    $port               = undef,
-    $ip                 = undef,
-    $ip_based           = false,
-    $add_listen         = true,
-    $docroot_owner      = 'root',
-    $docroot_group      = 'root',
-    $serveradmin        = false,
-    $ssl                = false,
-    $ssl_cert           = $apache::default_ssl_cert,
-    $ssl_key            = $apache::default_ssl_key,
-    $ssl_chain          = $apache::default_ssl_chain,
-    $ssl_ca             = $apache::default_ssl_ca,
-    $ssl_ca_dir         = $apache::params::ssl_certs_dir,
-    $ssl_crl_path       = $apache::default_ssl_crl_path,
-    $ssl_crl            = $apache::default_ssl_crl,
-    $ssl_certs_dir      = $apache::params::ssl_certs_dir,
-    $ssl_protocol       = undef,
-    $ssl_cipher_suite   = undef,
-    $ssl_verify_client  = undef,
-    $ssl_options        = undef,
-    $ssl_verify_depth   = undef,
-    $priority           = undef,
-    $default_vhost      = false,
-    $servername         = undef,
-    $serveraliases      = [],
-    $options            = ['Indexes','FollowSymLinks','MultiViews'],
-    $override           = ['None'],
-    $vhost_name         = '*',
-    $logroot            = "/var/log/${apache::params::apache_name}",
-    $access_log         = true,
-    $access_log_file    = undef,
-    $access_log_pipe    = undef,
-    $access_log_format  = undef,
-    $aliases            = undef,
-    $directories        = undef,
-    $error_log          = true,
-    $error_log_file     = undef,
-    $error_log_pipe     = undef,
-    $scriptalias        = undef,
-    $proxy_dest         = undef,
-    $proxy_pass         = undef,
-    $sslproxyengine     = false,
-    $no_proxy_uris      = [],
-    $redirect_source    = '/',
-    $redirect_dest      = undef,
-    $redirect_status    = undef,
-    $rack_base_uris     = undef,
-    $request_headers    = undef,
-    $rewrite_rule       = undef,
-    $rewrite_base       = undef,
-    $rewrite_cond       = undef,
-    $setenv             = [],
-    $setenvif           = [],
-    $block              = [],
-    $ensure             = 'present',
-    $custom_fragment    = undef
+    $virtual_docroot             = false,
+    $port                        = undef,
+    $ip                          = undef,
+    $ip_based                    = false,
+    $add_listen                  = true,
+    $docroot_owner               = 'root',
+    $docroot_group               = 'root',
+    $serveradmin                 = false,
+    $ssl                         = false,
+    $ssl_cert                    = $apache::default_ssl_cert,
+    $ssl_key                     = $apache::default_ssl_key,
+    $ssl_chain                   = $apache::default_ssl_chain,
+    $ssl_ca                      = $apache::default_ssl_ca,
+    $ssl_crl_path                = $apache::default_ssl_crl_path,
+    $ssl_crl                     = $apache::default_ssl_crl,
+    $ssl_certs_dir               = $apache::params::ssl_certs_dir,
+    $ssl_protocol                = undef,
+    $ssl_cipher                  = undef,
+    $ssl_honorcipherorder        = undef,
+    $ssl_verify_client           = undef,
+    $ssl_verify_depth            = undef,
+    $ssl_options                 = undef,
+    $priority                    = undef,
+    $default_vhost               = false,
+    $servername                  = $name,
+    $serveraliases               = [],
+    $options                     = ['Indexes','FollowSymLinks','MultiViews'],
+    $override                    = ['None'],
+    $directoryindex              = '',
+    $vhost_name                  = '*',
+    $logroot                     = $apache::logroot,
+    $access_log                  = true,
+    $access_log_file             = undef,
+    $access_log_pipe             = undef,
+    $access_log_syslog           = undef,
+    $access_log_format           = undef,
+    $aliases                     = undef,
+    $directories                 = undef,
+    $error_log                   = true,
+    $error_log_file              = undef,
+    $error_log_pipe              = undef,
+    $error_log_syslog            = undef,
+    $fallbackresource            = undef,
+    $scriptalias                 = undef,
+    $proxy_dest                  = undef,
+    $proxy_pass                  = undef,
+    $sslproxyengine              = false,
+    $suphp_addhandler            = $apache::params::suphp_addhandler,
+    $suphp_engine                = $apache::params::suphp_engine,
+    $suphp_configpath            = $apache::params::suphp_configpath,
+    $no_proxy_uris               = [],
+    $redirect_source             = '/',
+    $redirect_dest               = undef,
+    $redirect_status             = undef,
+    $rack_base_uris              = undef,
+    $request_headers             = undef,
+    $rewrite_rule                = undef,
+    $rewrite_cond                = undef,
+    $setenv                      = [],
+    $setenvif                    = [],
+    $block                       = [],
+    $ensure                      = 'present',
+    $wsgi_daemon_process         = undef,
+    $wsgi_daemon_process_options = undef,
+    $wsgi_process_group          = undef,
+    $wsgi_script_aliases         = undef,
+    $custom_fragment             = undef,
+    $itk                         = undef
   ) {
   # The base class must be included first because it is used by parameter defaults
   if ! defined(Class['apache']) {
@@ -126,12 +137,24 @@ define apache::vhost(
   validate_re($ensure, '^(present|absent)$',
   "${ensure} is not supported for ensure.
   Allowed values are 'present' and 'absent'.")
+  validate_re($suphp_engine, '^(on|off)$',
+  "${suphp_engine} is not supported for suphp_engine.
+  Allowed values are 'on' and 'off'.")
   validate_bool($ip_based)
   validate_bool($access_log)
   validate_bool($error_log)
   validate_bool($ssl)
   validate_bool($default_vhost)
   validate_bool($sslproxyengine)
+  if $wsgi_script_aliases {
+    validate_hash($wsgi_script_aliases)
+  }
+  if $wsgi_daemon_process_options {
+    validate_hash($wsgi_daemon_process_options)
+  }
+  if $itk {
+    validate_hash($itk)
+  }
 
   if $access_log_file and $access_log_pipe {
     fail("Apache::Vhost[${name}]: 'access_log_file' and 'access_log_pipe' cannot be defined at the same time")
@@ -139,6 +162,10 @@ define apache::vhost(
 
   if $error_log_file and $error_log_pipe {
     fail("Apache::Vhost[${name}]: 'error_log_file' and 'error_log_pipe' cannot be defined at the same time")
+  }
+
+  if $fallbackresource {
+    validate_re($fallbackresource, '^/|disabled', 'Please make sure fallbackresource starts with a / (or is "disabled")')
   }
 
   if $ssl {
@@ -172,23 +199,18 @@ define apache::vhost(
   # Is apache::mod::passenger enabled (or apache::mod['passenger'])
   $passenger_enabled = defined(Apache::Mod['passenger'])
 
-  # Open listening ports if they are not already
-  if $servername {
-    $servername_real = $servername
-  } else {
-    $servername_real = $name
-  }
-
   # Define log file names
   if $access_log_file {
     $access_log_destination = "${logroot}/${access_log_file}"
   } elsif $access_log_pipe {
     $access_log_destination = "\"${access_log_pipe}\""
+  } elsif $access_log_syslog {
+    $access_log_destination = "${access_log_syslog}"
   } else {
     if $ssl {
-      $access_log_destination = "${logroot}/${servername_real}_access_ssl.log"
+      $access_log_destination = "${logroot}/${servername}_access_ssl.log"
     } else {
-      $access_log_destination = "${logroot}/${servername_real}_access.log"
+      $access_log_destination = "${logroot}/${servername}_access.log"
     }
   }
 
@@ -196,11 +218,13 @@ define apache::vhost(
     $error_log_destination = "${logroot}/${error_log_file}"
   } elsif $error_log_pipe {
     $error_log_destination = "\"${error_log_pipe}\""
+  } elsif $error_log_syslog {
+    $error_log_destination = "${error_log_syslog}"
   } else {
     if $ssl {
-      $error_log_destination = "${logroot}/${servername_real}_error_ssl.log"
+      $error_log_destination = "${logroot}/${servername}_error_ssl.log"
     } else {
-      $error_log_destination = "${logroot}/${servername_real}_error.log"
+      $error_log_destination = "${logroot}/${servername}_error.log"
     }
   }
 
@@ -299,9 +323,11 @@ define apache::vhost(
     $_directories = $directories
   } else {
     $_directories = [ {
+      provider       => 'directory',
       path           => $docroot,
       options        => $options,
       allow_override => $override,
+      directoryindex => $directoryindex,
       order          => 'allow,deny',
       allow          => 'from all',
     } ]
@@ -309,7 +335,7 @@ define apache::vhost(
 
   # Template uses:
   # - $nvh_addr_port
-  # - $servername_real
+  # - $servername
   # - $serveradmin
   # - $docroot
   # - $virtual_docroot
@@ -324,6 +350,7 @@ define apache::vhost(
   # - $_access_log_format
   # - $error_log
   # - $error_log_destination
+  # - $fallbackresource
   # - $custom_fragment
   # block fragment:
   #   - $block
@@ -343,7 +370,6 @@ define apache::vhost(
   #   - $request_headers
   # rewrite fragment:
   #   - $rewrite_rule
-  #   - $rewrite_base
   #   - $rewrite_cond
   # scriptalias fragment:
   #   - $scriptalias
@@ -362,6 +388,17 @@ define apache::vhost(
   #   - $ssl_ca
   #   - $ssl_crl
   #   - $ssl_crl_path
+  #   - $ssl_verify_client
+  #   - $ssl_verify_depth
+  #   - $ssl_options
+  # suphp fragment:
+  #   - $suphp_addhandler
+  #   - $suphp_engine
+  #   - $suphp_configpath
+  # wsgi fragment:
+  #   - $wsgi_daemon_process
+  #   - $wsgi_process_group
+  #   - $wsgi_script_aliases
   file { "${priority_real}-${filename}.conf":
     ensure  => $ensure,
     path    => "${apache::vhost_dir}/${priority_real}-${filename}.conf",

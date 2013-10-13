@@ -10,20 +10,19 @@ describe 'apache', :type => :class do
       }
     end
     it { should include_class("apache::params") }
-    it { should contain_package("httpd") }
-    it { should contain_user("www-data") }
-    it { should contain_group("www-data") }
-    it { should contain_service("httpd").with(
-      'ensure'    => 'true',
-      'enable'    => 'true',
-      'subscribe' => 'Package[httpd]'
+    it { should contain_package("httpd").with(
+      'notify' => 'Class[Apache::Service]',
+      'ensure' => 'installed'
       )
     }
+    it { should contain_user("www-data") }
+    it { should contain_group("www-data") }
+    it { should contain_class("apache::service") }
     it { should contain_file("/etc/apache2/sites-enabled").with(
       'ensure'  => 'directory',
       'recurse' => 'true',
       'purge'   => 'true',
-      'notify'  => 'Service[httpd]',
+      'notify'  => 'Class[Apache::Service]',
       'require' => 'Package[httpd]'
       )
     }
@@ -31,7 +30,7 @@ describe 'apache', :type => :class do
       'ensure'  => 'directory',
       'recurse' => 'true',
       'purge'   => 'true',
-      'notify'  => 'Service[httpd]',
+      'notify'  => 'Class[Apache::Service]',
       'require' => 'Package[httpd]'
       )
     }
@@ -39,7 +38,7 @@ describe 'apache', :type => :class do
       'ensure'  => 'directory',
       'recurse' => 'true',
       'purge'   => 'true',
-      'notify'  => 'Service[httpd]',
+      'notify'  => 'Class[Apache::Service]',
       'require' => 'Package[httpd]'
       )
     }
@@ -47,7 +46,7 @@ describe 'apache', :type => :class do
       'owner'   => 'root',
       'group'   => 'root',
       'mode'    => '0644',
-      'notify'  => 'Service[httpd]'
+      'notify'  => 'Class[Apache::Service]'
       )
     }
     # Assert that load files are placed and symlinked for these mods, but no conf file.
@@ -104,6 +103,26 @@ describe 'apache', :type => :class do
         'target' => "/etc/apache2/mods-available/#{modname}.conf"
       ) }
     end
+    describe "Don't create user resource" do
+      context "when parameter manage_user is false" do
+        let :params do
+          { :manage_user => false }
+        end
+
+        it { should_not contain_user('www-data') }
+        it { should contain_file("/etc/apache2/apache2.conf").with_content %r{^User www-data\n} }
+      end
+    end
+    describe "Don't create group resource" do
+      context "when parameter manage_group is false" do
+        let :params do
+          { :manage_group => false }
+        end
+
+        it { should_not contain_group('www-data') }
+        it { should contain_file("/etc/apache2/apache2.conf").with_content %r{^Group www-data\n} }
+      end
+    end
   end
   context "on a RedHat 5 OS" do
     let :facts do
@@ -114,20 +133,19 @@ describe 'apache', :type => :class do
       }
     end
     it { should include_class("apache::params") }
-    it { should contain_package("httpd") }
-    it { should contain_user("apache") }
-    it { should contain_group("apache") }
-    it { should contain_service("httpd").with(
-      'ensure'    => 'true',
-      'enable'    => 'true',
-      'subscribe' => 'Package[httpd]'
+    it { should contain_package("httpd").with(
+      'notify' => 'Class[Apache::Service]',
+      'ensure' => 'installed'
       )
     }
+    it { should contain_user("apache") }
+    it { should contain_group("apache") }
+    it { should contain_class("apache::service") }
     it { should contain_file("/etc/httpd/conf.d").with(
       'ensure'  => 'directory',
       'recurse' => 'true',
       'purge'   => 'true',
-      'notify'  => 'Service[httpd]',
+      'notify'  => 'Class[Apache::Service]',
       'require' => 'Package[httpd]'
       )
     }
@@ -135,7 +153,7 @@ describe 'apache', :type => :class do
       'owner'   => 'root',
       'group'   => 'root',
       'mode'    => '0644',
-      'notify'  => 'Service[httpd]'
+      'notify'  => 'Class[Apache::Service]'
       )
     }
     describe "Alternate confd/mod/vhosts directory" do
@@ -152,7 +170,7 @@ describe 'apache', :type => :class do
           'ensure'  => 'directory',
           'recurse' => 'true',
           'purge'   => 'true',
-          'notify'  => 'Service[httpd]',
+          'notify'  => 'Class[Apache::Service]',
           'require' => 'Package[httpd]'
         ) }
       end
@@ -210,7 +228,7 @@ describe 'apache', :type => :class do
         'ensure'  => 'directory',
         'recurse' => 'true',
         'purge'   => 'true',
-        'notify'  => 'Service[httpd]',
+        'notify'  => 'Class[Apache::Service]',
         'require' => 'Package[httpd]'
       ) }
     end
@@ -221,6 +239,7 @@ describe 'apache', :type => :class do
           { :mpm_module => false }
         end
         it 'should not declare mpm modules' do
+          should_not contain_class('apache::mod::itk')
           should_not contain_class('apache::mod::prefork')
           should_not contain_class('apache::mod::worker')
         end
@@ -230,6 +249,7 @@ describe 'apache', :type => :class do
           { :mpm_module => 'prefork' }
         end
         it { should contain_class('apache::mod::prefork') }
+        it { should_not contain_class('apache::mod::itk') }
         it { should_not contain_class('apache::mod::worker') }
       end
       context "when declaring mpm_module => worker" do
@@ -237,13 +257,14 @@ describe 'apache', :type => :class do
           { :mpm_module => 'worker' }
         end
         it { should contain_class('apache::mod::worker') }
+        it { should_not contain_class('apache::mod::itk') }
         it { should_not contain_class('apache::mod::prefork') }
       end
       context "when declaring mpm_module => breakme" do
         let :params do
           { :mpm_module => 'breakme' }
         end
-        it { expect { should contain_class('apache::params') }.to raise_error Puppet::Error, /does not match/ }
+        it { expect { subject }.to raise_error Puppet::Error, /does not match/ }
       end
     end
 
@@ -259,6 +280,79 @@ describe 'apache', :type => :class do
           { :conf_template => 'site_apache/fake.conf.erb' }
         end
         it { should contain_file("/etc/httpd/conf/httpd.conf").with_content %r{^Fake template for rspec.$} }
+      end
+    end
+
+    describe "default mods" do
+      context "without" do
+        let :params do
+          { :default_mods => false }
+        end
+
+        it { should contain_apache__mod('authz_host') }
+        it { should_not contain_apache__mod('env') }
+      end
+      context "custom" do
+        let :params do
+          { :default_mods => [
+            'info',
+            'alias',
+            'mime',
+            'env',
+            'setenv',
+            'expires',
+          ]}
+        end
+
+        it { should contain_apache__mod('authz_host') }
+        it { should contain_apache__mod('env') }
+        it { should contain_class('apache::mod::info') }
+        it { should contain_class('apache::mod::mime') }
+      end
+    end
+    describe "Don't create user resource" do
+      context "when parameter manage_user is false" do
+        let :params do
+          { :manage_user => false }
+        end
+
+        it { should_not contain_user('apache') }
+        it { should contain_file("/etc/httpd/conf/httpd.conf").with_content %r{^User apache\n} }
+      end
+    end
+    describe "Don't create group resource" do
+      context "when parameter manage_group is false" do
+        let :params do
+          { :manage_group => false }
+        end
+
+        it { should_not contain_group('apache') }
+        it { should contain_file("/etc/httpd/conf/httpd.conf").with_content %r{^Group apache\n} }
+
+      end
+    end
+    describe "sendfile" do
+      context "with invalid value" do
+        let :params do
+          { :sendfile => 'foo' }
+        end
+        it "should fail" do
+          expect do
+            subject
+          end.to raise_error(Puppet::Error, /"foo" does not match/)
+        end
+      end
+      context "On" do
+        let :params do
+          { :sendfile => 'On' }
+        end
+        it { should contain_file("/etc/httpd/conf/httpd.conf").with_content %r{^EnableSendfile On\n} }
+      end
+      context "Off" do
+        let :params do
+          { :sendfile => 'Off' }
+        end
+        it { should contain_file("/etc/httpd/conf/httpd.conf").with_content %r{^EnableSendfile Off\n} }
       end
     end
   end

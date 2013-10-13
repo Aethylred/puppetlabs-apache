@@ -6,6 +6,9 @@ class apache::mod::prefork (
   $maxclients          = '256',
   $maxrequestsperchild = '4000',
 ) {
+  if defined(Class['apache::mod::itk']) {
+    fail('May not include both apache::mod::itk and apache::mod::prefork on the same node')
+  }
   if defined(Class['apache::mod::worker']) {
     fail('May not include both apache::mod::worker and apache::mod::prefork on the same node')
   }

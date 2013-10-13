@@ -23,7 +23,7 @@ describe 'apache::mod::php', :type => :class do
         'class { "apache": mpm_module => worker, }'
       end
       it 'should raise an error' do
-        expect { subject.should contain_apache__mod('php5') }.to raise_error Puppet::Error, /mpm_module => 'prefork'/
+        expect { subject }.to raise_error Puppet::Error, /mpm_module => 'prefork'/
       end
     end
   end
@@ -44,6 +44,17 @@ describe 'apache::mod::php', :type => :class do
       it { should contain_package("php") }
       it { should contain_file("php5.load").with(
         :content => "LoadModule php5_module modules/libphp5.so\n"
+      ) }
+    end
+    context "with specific version" do
+      let :pre_condition do
+        'class { "apache": }'
+      end
+      let :params do
+        { :package_ensure => '5.3.13'}
+      end
+      it { should contain_package("php").with(
+        :ensure => '5.3.13'
       ) }
     end
     context "with mpm_module => prefork" do
