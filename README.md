@@ -235,6 +235,10 @@ Determines whether the 'httpd' service is enabled when the machine is booted. De
 
 Determines whether the service should be running. Can be set to 'undef' which is useful when you want to let the service be managed by some other application like pacemaker. Defaults to 'running'.
 
+#####`purge_configs`
+
+Removes all other apache configs and vhosts, which is automatically set to true. Setting this to false is a stopgap measure to allow the apache module to coexist with existing or otherwise managed configuration. It is recommended that you move your configuration entirely to resources within this module.
+
 #####`serveradmin`
 
 Sets the server administrator. Defaults to 'root@localhost'.
@@ -253,7 +257,7 @@ Enables custom error documents. Defaults to 'false'.
 
 #####`httpd_dir`
 
-Changes the base location of the configuration directories used for the service. This is useful for specially repackaged HTTPD builds but may have unintended concequences when used in combination with the default distribution packages. Default is based on your OS.
+Changes the base location of the configuration directories used for the service. This is useful for specially repackaged HTTPD builds but may have unintended consequences when used in combination with the default distribution packages. Default is based on your OS.
 
 #####`confd_dir`
 
@@ -301,15 +305,15 @@ Allows the configuration of a trailing footer line under server-generated docume
 
 #####`manage_user`
 
-Setting this to false will avoid the user resource to be created by this module. This is useful when you already have a user created in another puppet module and that you want to used it to run apache. Without this, it would result in a duplicate resource error. 
+Setting this to false will avoid the user resource to be created by this module. This is useful when you already have a user created in another puppet module and that you want to used it to run apache. Without this, it would result in a duplicate resource error.
 
 #####`manage_group`
 
-Setting this to false will avoid the group resource to be created by this module. This is useful when you already have a group created in another puppet module and that you want to used it for apache. Without this, it would result in a duplicate resource error. 
+Setting this to false will avoid the group resource to be created by this module. This is useful when you already have a group created in another puppet module and that you want to used it for apache. Without this, it would result in a duplicate resource error.
 
 #####`package_ensure`
 
-Allow control over the package ensure statement. This is useful if you want to make sure apache is always at the latest version or wheter it is only installed.
+Allow control over the package ensure statement. This is useful if you want to make sure apache is always at the latest version or whether it is only installed.
 
 ####Class: `apache::default_mods`
 
@@ -345,10 +349,11 @@ There are many `apache::mod::[name]` classes within this module that can be decl
 * `dir`*
 * `disk_cache`
 * `fcgid`
+* `fastcgi`
 * `info`
 * `ldap`
 * `mime`
-* `mime_magic`
+* `mime_magic`*
 * `mpm_event`
 * `negotiation`
 * `passenger`*
@@ -462,7 +467,7 @@ Sets a given `apache::vhost` as the default to serve requests that do not match 
 
 #####`directories`
 
-Passes a list of hashes to the vhost to create `<Directory /path/to/directory>...</Directory>` directive blocks as per the [Apache core documentation](http://httpd.apache.org/docs/2.2/mod/core.html#directory).  The `path` key is required in these hashes.  Usage will typically look like:
+Passes a list of hashes to the vhost to create `<Directory /path/to/directory>...</Directory>` directive blocks as per the [Apache core documentation](http://httpd.apache.org/docs/2.2/mod/core.html#directory).  The `path` key is required in these hashes. An optional `provider` defaults to `directory`.  Usage will typically look like:
 
 ```puppet
     apache::vhost { 'sample.example.net':
@@ -478,7 +483,18 @@ Passes a list of hashes to the vhost to create `<Directory /path/to/directory>..
 
 *Note:* If not defined a single default `<Directory>` block will be created that matches the `docroot` parameter.
 
-The directives will be embedded within the `Directory` directive block, missing directives should be undefined and not be added, resulting in their default vaules in Apache. Currently this is the list of supported directives:
+`provider` can be set to any of `directory`, `files`, or `location`. If the [pathspec starts with a `~`](https://httpd.apache.org/docs/2.2/mod/core.html#files), httpd will interpret this as the equivalent of `DirectoryMatch`, `FilesMatch`, or `LocationMatch`, respectively.
+
+```puppet
+    apache::vhost { 'files.example.net':
+      docroot     => '/var/www/files',
+      directories => [
+        { path => '~ (\.swp|\.bak|~)$', 'provider' => 'files', 'deny' => 'from all' },
+      ],
+    }
+```
+
+The directives will be embedded within the `Directory` (`Files`, or `Location`) directive block, missing directives should be undefined and not be added, resulting in their default vaules in Apache. Currently this is the list of supported directives:
 
 ######`addhandlers`
 
@@ -558,7 +574,7 @@ Sets the order of processing `Allow` and `Deny` statements as per [Apache core d
 ```puppet
     apache::vhost { 'sample.example.net':
       docroot     => '/path/to/directory',
-      directories => [ { path => '/path/to/directory', order => 'Allow, Deny' } ],
+      directories => [ { path => '/path/to/directory', order => 'Allow,Deny' } ],
     }
 ```
 
@@ -686,6 +702,18 @@ Sends all error log messages to syslog. Defaults to 'undef'.
 #####`ensure`
 
 Specifies if the vhost file is present or absent.
+
+#####`fastcgi_server`
+
+Specifies the filename as an external FastCGI application. Defaults to 'undef'.
+
+#####`fastcgi_socket`
+
+Filename used to communicate with the web server.  Defaults to 'undef'.
+
+#####`fastcgi_dir`
+
+Directory to enable for FastCGI.  Defaults to 'undef'.
 
 #####`ip`
 
@@ -841,6 +869,32 @@ Creates URL rewrite rules. Defaults to 'undef'. This parameter allows you to spe
 #####`scriptalias`
 
 Defines a directory of CGI scripts to be aliased to the path '/cgi-bin'
+
+#####`scriptaliases`
+
+Takes an array hashes with the keys containing the alias and path.  For example:
+
+Usage will typically look like:
+
+```puppet
+    apache::vhost { 'sample.example.net':
+      docroot     => '/path/to/directory',
+      scriptaliases => [
+        {
+          alias => '/myscript/',
+          path  => '/usr/share/myscript',
+        },
+        {
+          alias => '/oldscript/',
+          path  => '/usr/share/myscript',
+        },
+        {
+          alias => '/neatscript/',
+          path  => '/usr/share/neatscript',
+        },
+      ]
+    }
+```
 
 #####`serveradmin`
 

@@ -103,6 +103,7 @@ define apache::vhost(
     $error_log_syslog            = undef,
     $fallbackresource            = undef,
     $scriptalias                 = undef,
+    $scriptaliases               = [],
     $proxy_dest                  = undef,
     $proxy_pass                  = undef,
     $sslproxyengine              = false,
@@ -126,7 +127,10 @@ define apache::vhost(
     $wsgi_process_group          = undef,
     $wsgi_script_aliases         = undef,
     $custom_fragment             = undef,
-    $itk                         = undef
+    $itk                         = undef,
+    $fastcgi_server              = undef,
+    $fastcgi_socket              = undef,
+    $fastcgi_dir                 = undef,
   ) {
   # The base class must be included first because it is used by parameter defaults
   if ! defined(Class['apache']) {
@@ -273,13 +277,13 @@ define apache::vhost(
 
   # Load mod_rewrite if needed and not yet loaded
   if $rewrite_rule {
-    if ! defined(Apache::Mod['rewrite']) {
-      apache::mod { 'rewrite': }
+    if ! defined(Class['apache::mod::rewrite']) {
+      include apache::mod::rewrite
     }
   }
 
   # Load mod_alias if needed and not yet loaded
-  if $scriptalias or ($redirect_source and $redirect_dest) {
+  if ($scriptalias or $scriptaliases != []) or ($redirect_source and $redirect_dest) {
     if ! defined(Class['apache::mod::alias']) {
       include apache::mod::alias
     }
@@ -296,6 +300,13 @@ define apache::vhost(
   if $rack_base_uris {
     if ! defined(Class['apache::mod::passenger']) {
       include apache::mod::passenger
+    }
+  }
+
+  # Load mod_fastci if needed and not yet loaded
+  if $fastcgi_server and $fastcgi_socket {
+    if ! defined(Class['apache::mod::fastcgi']) {
+      include apache::mod::fastcgi
     }
   }
 
@@ -357,6 +368,10 @@ define apache::vhost(
   # directories fragment:
   #   - $passenger_enabled
   #   - $directories (a list of key-value hashes is expected)
+  # fastcgi fragment:
+  #   - $fastcgi_server
+  #   - $fastcgi_socket
+  #   - $fastcgi_dir
   # proxy fragment:
   #   - $proxy_dest
   #   - $no_proxy_uris
@@ -373,6 +388,7 @@ define apache::vhost(
   #   - $rewrite_cond
   # scriptalias fragment:
   #   - $scriptalias
+  #   - $scriptaliases
   #   - $ssl
   # serveralias fragment:
   #   - $serveraliases
@@ -415,8 +431,12 @@ define apache::vhost(
   }
   if $::osfamily == 'Debian' {
     $vhost_enable_dir = $apache::vhost_enable_dir
+    $vhost_symlink_ensure = $ensure ? {
+      present => link,
+      default => $ensure,
+    }
     file{ "${priority_real}-${filename}.conf symlink":
-      ensure  => link,
+      ensure  => $vhost_symlink_ensure,
       path    => "${vhost_enable_dir}/${priority_real}-${filename}.conf",
       target  => "${apache::vhost_dir}/${priority_real}-${filename}.conf",
       owner   => 'root',
