@@ -550,7 +550,7 @@ describe 'apache::vhost', :type => :define do
           let :params do default_params.merge({ param[:attr].to_sym => param[:value] }) end
 
           it { should contain_file("25-#{title}.conf").with_mode('0644') }
-          describe "matches for: #{param[:title]}" do
+          describe param[:title]} do
             lines = subject.resource('file', "25-#{title}.conf").send(:parameters)[:content].split("\n")
             (Array(param[:match]).collect { |x| (lines.grep x).first }.length).should == Array(param[:match]).length
             (Array(param[:notmatch]).collect { |x| lines.grep x }.flatten).should be_empty
