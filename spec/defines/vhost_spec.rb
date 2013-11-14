@@ -551,7 +551,7 @@ describe 'apache::vhost', :type => :define do
 
           it { should contain_file("25-#{title}.conf").with_mode('0644') }
           put 'file match starts'
-          it param[:title] do
+          describe "matches for: #{param[:title]}" do
             put 'file match in progress'
             lines = subject.resource('file', "25-#{title}.conf").send(:parameters)[:content].split("\n")
             (Array(param[:match]).collect { |x| (lines.grep x).first }.length).should == Array(param[:match]).length
