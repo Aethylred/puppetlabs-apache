@@ -81,11 +81,14 @@ define apache::vhost(
     $ssl_verify_client           = undef,
     $ssl_verify_depth            = undef,
     $ssl_options                 = undef,
+    $ssl_proxyengine             = false,
     $priority                    = undef,
     $default_vhost               = false,
     $servername                  = $name,
     $serveraliases               = [],
     $options                     = ['Indexes','FollowSymLinks','MultiViews'],
+    $index_options               = [],
+    $index_order_default         = [],
     $override                    = ['None'],
     $directoryindex              = '',
     $vhost_name                  = '*',
@@ -106,7 +109,6 @@ define apache::vhost(
     $scriptaliases               = [],
     $proxy_dest                  = undef,
     $proxy_pass                  = undef,
-    $sslproxyengine              = false,
     $suphp_addhandler            = $apache::params::suphp_addhandler,
     $suphp_engine                = $apache::params::suphp_engine,
     $suphp_configpath            = $apache::params::suphp_configpath,
@@ -131,6 +133,7 @@ define apache::vhost(
     $fastcgi_server              = undef,
     $fastcgi_socket              = undef,
     $fastcgi_dir                 = undef,
+    $additional_includes         = [],
   ) {
   # The base class must be included first because it is used by parameter defaults
   if ! defined(Class['apache']) {
@@ -149,7 +152,7 @@ define apache::vhost(
   validate_bool($error_log)
   validate_bool($ssl)
   validate_bool($default_vhost)
-  validate_bool($sslproxyengine)
+  validate_bool($ssl_proxyengine)
   if $wsgi_script_aliases {
     validate_hash($wsgi_script_aliases)
   }
@@ -172,7 +175,7 @@ define apache::vhost(
     validate_re($fallbackresource, '^/|disabled', 'Please make sure fallbackresource starts with a / (or is "disabled")')
   }
 
-  if $ssl {
+  if $ssl and $ensure == 'present' {
     include apache::mod::ssl
     # Required for the AddType lines.
     include apache::mod::mime
@@ -267,12 +270,12 @@ define apache::vhost(
     if $ip and defined(Apache::Listen[$port]) {
       fail("Apache::Vhost[${name}]: Mixing IP and non-IP Listen directives is not possible; check the add_listen parameter of the apache::vhost define to disable this")
     }
-    if ! defined(Apache::Listen[$listen_addr_port]) and $listen_addr_port {
+    if ! defined(Apache::Listen[$listen_addr_port]) and $listen_addr_port and $ensure == 'present' {
       apache::listen { $listen_addr_port: }
     }
   }
   if ! $ip_based {
-    if ! defined(Apache::Namevirtualhost[$nvh_addr_port]) {
+    if ! defined(Apache::Namevirtualhost[$nvh_addr_port]) and $ensure == 'present' {
       apache::namevirtualhost { $nvh_addr_port: }
     }
   }
@@ -365,6 +368,7 @@ define apache::vhost(
   # - $error_log_destination
   # - $fallbackresource
   # - $custom_fragment
+  # - $additional_includes
   # block fragment:
   #   - $block
   # directories fragment:

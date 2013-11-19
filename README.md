@@ -392,6 +392,7 @@ There are many `apache::mod::[name]` classes within this module that can be decl
 * `python`
 * `reqtimeout`
 * `rewrite`
+* `rpaf`*
 * `setenvif`
 * `ssl`* (see [apache::mod::ssl](#class-apachemodssl) below)
 * `status`*
@@ -422,6 +423,7 @@ To *use* SSL with a virtual host, you must either set the`default_ssl_vhost` par
     class { 'apache::mod::wsgi':
       wsgi_socket_prefix => "\${APACHE_RUN_DIR}WSGI",
       wsgi_python_home   => '/path/to/virtenv',
+      wsgi_python_path   => '/path/to/virtenv/site-packages',
     }
 ```
 ####Defined Type: `apache::vhost`
@@ -595,6 +597,27 @@ Lists the options for the given `<Directory>` block
     }
 ```
 
+######`index_options`
+
+Styles the list
+
+```puppet
+    apache::vhost { 'sample.example.net':
+      docroot     => '/path/to/directory',
+      directories => [ { path => '/path/to/directory', options => ['Indexes','FollowSymLinks','MultiViews'], index_options => ['IgnoreCase', 'FancyIndexing', 'FoldersFirst', 'NameWidth=*', 'DescriptionWidth=*', 'SuppressHTMLPreamble'] }],
+    }
+```
+
+######`index_order_default`
+Sets the order of the list 
+
+```puppet
+    apache::vhost { 'sample.example.net':
+      docroot     => '/path/to/directory',
+      directories => [ { path => '/path/to/directory', order => 'Allow,Deny', index_order_default => ['Descending', 'Date']}, ],
+    }
+```
+
 ######`order`
 Sets the order of processing `Allow` and `Deny` statements as per [Apache core documentation](http://httpd.apache.org/docs/2.2/mod/mod_authz_host.html#order). An example:
 
@@ -741,6 +764,12 @@ Filename used to communicate with the web server.  Defaults to 'undef'.
 #####`fastcgi_dir`
 
 Directory to enable for FastCGI.  Defaults to 'undef'.
+
+#####`additional_includes`
+
+Specifies paths to additional static vhost-specific Apache configuration files.
+This option is useful when you need to implement a unique and/or custom
+configuration not supported by this module.
 
 #####`ip`
 
@@ -1031,7 +1060,7 @@ An array of strings example:
     }
 ```
 
-#####`sslproxyengine`
+#####`ssl_proxyengine`
 
 Specifies whether to use `SSLProxyEngine` or not. Defaults to `false`.
 
