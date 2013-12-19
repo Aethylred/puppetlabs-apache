@@ -24,6 +24,7 @@ class apache (
   $default_ssl_ca       = undef,
   $default_ssl_crl_path = undef,
   $default_ssl_crl      = undef,
+  $ip                   = undef,
   $service_enable       = true,
   $service_ensure       = 'running',
   $purge_configs        = true,
@@ -49,9 +50,11 @@ class apache (
   $keepalive            = $apache::params::keepalive,
   $keepalive_timeout    = $apache::params::keepalive_timeout,
   $logroot              = $apache::params::logroot,
+  $log_level            = $apache::params::log_level,
   $ports_file           = $apache::params::ports_file,
   $server_tokens        = 'OS',
   $server_signature     = 'On',
+  $trace_enable         = 'On',
   $package_ensure       = 'installed',
 ) inherits apache::params {
 
@@ -101,6 +104,11 @@ class apache (
       require => Package['httpd']
     }
   }
+
+  $valid_log_level_re = '(emerg|alert|crit|error|warn|notice|info|debug)'
+
+  validate_re($log_level, $valid_log_level_re,
+  "Log level '${log_level}' is not one of the supported Apache HTTP Server log levels.")
 
   class { 'apache::service':
     service_name   => $service_name,
@@ -259,6 +267,9 @@ class apache (
     # - $keepalive
     # - $keepalive_timeout
     # - $server_root
+    # - $server_tokens
+    # - $server_signature
+    # - $trace_enable
     file { "${apache::params::conf_dir}/${apache::params::conf_file}":
       ensure  => file,
       content => template($conf_template),
@@ -302,6 +313,7 @@ class apache (
       serveradmin     => $serveradmin,
       access_log_file => $access_log_file,
       priority        => '15',
+      ip              => $ip,
     }
     $ssl_access_log_file = $::osfamily ? {
       'freebsd' => $access_log_file,
@@ -316,6 +328,7 @@ class apache (
       serveradmin     => $serveradmin,
       access_log_file => $ssl_access_log_file,
       priority        => '15',
+      ip              => $ip,
     }
   }
 }

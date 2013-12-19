@@ -32,6 +32,9 @@ class apache::params {
     $servername = $::hostname
   }
 
+  # The default error log level
+  $log_level = 'warn'
+
   if $::osfamily == 'RedHat' or $::operatingsystem == 'amazon' {
     $user                 = 'apache'
     $group                = 'apache'
@@ -119,7 +122,6 @@ class apache::params {
     $suphp_configpath  = '/etc/php5/apache2'
     $mod_packages     = {
       'auth_kerb'   => 'libapache2-mod-auth-kerb',
-      'authnz_ldap' => 'libapache2-mod-authz-ldap',
       'dav_svn'     => 'libapache2-svn',
       'fastcgi'     => 'libapache2-mod-fastcgi',
       'fcgid'       => 'libapache2-mod-fcgid',

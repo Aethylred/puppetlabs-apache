@@ -12,11 +12,15 @@
 # - The $priority of the site
 # - The $servername is the primary name of the virtual host
 # - The $serveraliases of the site
+# - The $ip to configure the host on, defaulting to *
 # - The $options for the given vhost
 # - The $override for the given vhost (list of AllowOverride arguments)
 # - The $vhost_name for name based virtualhosting, defaulting to *
 # - The $logroot specifies the location of the virtual hosts logfiles, default
 #   to /var/log/<apache log location>/
+# - The $log_level specifies the verbosity of the error log for this vhost. Not
+#   set by default for the vhost, instead the global server configuration default
+#   of 'warn' is used.
 # - The $access_log specifies if *_access.log directives should be configured.
 # - The $ensure specifies if vhost file is present or absent.
 # - The $request_headers is a list of RequestHeader statement strings as per http://httpd.apache.org/docs/2.2/mod/mod_headers.html#requestheader
@@ -40,6 +44,24 @@
 #    docroot => '/path/to/docroot',
 #  }
 #
+#  # Multiple Mod Rewrites:
+#  apache::vhost { 'site.name.fqdn':
+#    port => '80',
+#    docroot => '/path/to/docroot',
+#    rewrites => [
+#      {
+#        comment       => 'force www domain',
+#        rewrite_cond => ['%{HTTP_HOST} ^([a-z.]+)?example.com$ [NC]', '%{HTTP_HOST} !^www. [NC]'],
+#        rewrite_rule => ['.? http://www.%1example.com%{REQUEST_URI} [R=301,L]']
+#      },
+#      {
+#        comment       => 'prevent image hotlinking',
+#        rewrite_cond => ['%{HTTP_REFERER} !^$', '%{HTTP_REFERER} !^http://(www.)?example.com/ [NC]'],
+#        rewrite_rule => ['.(gif|jpg|png)$ - [F]']
+#      },
+#    ]
+#  }
+#
 #  # SSL vhost with non-SSL rewrite:
 #  apache::vhost { 'site.name.fqdn':
 #    port    => '443',
@@ -48,8 +70,13 @@
 #  }
 #  apache::vhost { 'site.name.fqdn':
 #    port          => '80',
-#    rewrite_cond => '%{HTTPS} off',
-#    rewrite_rule => '(.*) https://%{HTTPS_HOST}%{REQUEST_URI}',
+#    rewrites => [
+#      {
+#        comment       => "redirect non-SSL traffic to SSL site",
+#        rewrite_cond => ['%{HTTPS} off'],
+#        rewrite_rule => ['(.*) https://%{HTTPS_HOST}%{REQUEST_URI}']
+#      }
+#    ]
 #  }
 #  apache::vhost { 'site.name.fqdn':
 #    port            => '80',
@@ -93,17 +120,20 @@ define apache::vhost(
     $directoryindex              = '',
     $vhost_name                  = '*',
     $logroot                     = $apache::logroot,
+    $log_level                   = undef,
     $access_log                  = true,
     $access_log_file             = undef,
     $access_log_pipe             = undef,
     $access_log_syslog           = undef,
     $access_log_format           = undef,
+    $access_log_env_var          = undef,
     $aliases                     = undef,
     $directories                 = undef,
     $error_log                   = true,
     $error_log_file              = undef,
     $error_log_pipe              = undef,
     $error_log_syslog            = undef,
+    $error_documents             = [],
     $fallbackresource            = undef,
     $scriptalias                 = undef,
     $scriptaliases               = [],
@@ -112,12 +142,15 @@ define apache::vhost(
     $suphp_addhandler            = $apache::params::suphp_addhandler,
     $suphp_engine                = $apache::params::suphp_engine,
     $suphp_configpath            = $apache::params::suphp_configpath,
+    $php_admin_flags             = [],
+    $php_admin_values            = [],
     $no_proxy_uris               = [],
     $redirect_source             = '/',
     $redirect_dest               = undef,
     $redirect_status             = undef,
     $rack_base_uris              = undef,
     $request_headers             = undef,
+    $rewrites                    = undef,
     $rewrite_rule                = undef,
     $rewrite_cond                = undef,
     $setenv                      = [],
@@ -153,6 +186,19 @@ define apache::vhost(
   validate_bool($ssl)
   validate_bool($default_vhost)
   validate_bool($ssl_proxyengine)
+  if $rewrites {
+    validate_array($rewrites)
+    validate_hash($rewrites[0])
+  }
+
+  # Deprecated backwards-compatibility
+  if $rewrite_rule {
+    warning('Apache::Vhost: parameter rewrite_rule is deprecated in favor of rewrites')
+  }
+  if $rewrite_cond {
+    warning('Apache::Vhost parameter rewrite_cond is deprecated in favor of rewrites')
+  }
+
   if $wsgi_script_aliases {
     validate_hash($wsgi_script_aliases)
   }
@@ -161,6 +207,11 @@ define apache::vhost(
   }
   if $itk {
     validate_hash($itk)
+  }
+
+  if $log_level {
+    validate_re($log_level, '^(emerg|alert|crit|error|warn|notice|info|debug)$',
+    "Log level '${log_level}' is not one of the supported Apache HTTP Server log levels.")
   }
 
   if $access_log_file and $access_log_pipe {
@@ -244,6 +295,9 @@ define apache::vhost(
     $_access_log_format = 'combined'
   }
 
+  if $access_log_env_var {
+    $_access_log_env_var = "env=${access_log_env_var}"
+  }
 
   if $ip {
     if $port {
@@ -281,9 +335,9 @@ define apache::vhost(
   }
 
   # Load mod_rewrite if needed and not yet loaded
-  if $rewrite_rule {
-    if ! defined(Class['apache::mod::rewrite']) {
-      include apache::mod::rewrite
+  if $rewrites or $rewrite_cond {
+    if ! defined(Apache::Mod['rewrite']) {
+      apache::mod { 'rewrite': }
     }
   }
 
@@ -298,6 +352,9 @@ define apache::vhost(
   if ($proxy_dest or $proxy_pass) {
     if ! defined(Class['apache::mod::proxy']) {
       include apache::mod::proxy
+    }
+    if ! defined(Class['apache::mod::proxy_http']) {
+      include apache::mod::proxy_http
     }
   }
 
@@ -361,11 +418,14 @@ define apache::vhost(
   # - $name
   # - $aliases
   # - $_directories
+  # - $log_level
   # - $access_log
   # - $access_log_destination
   # - $_access_log_format
+  # - $_access_log_env_var
   # - $error_log
   # - $error_log_destination
+  # - $error_documents
   # - $fallbackresource
   # - $custom_fragment
   # - $additional_includes
@@ -373,6 +433,8 @@ define apache::vhost(
   #   - $block
   # directories fragment:
   #   - $passenger_enabled
+  #   - $php_admin_flags
+  #   - $php_admin_values
   #   - $directories (a list of key-value hashes is expected)
   # fastcgi fragment:
   #   - $fastcgi_server
@@ -390,8 +452,7 @@ define apache::vhost(
   # requestheader fragment:
   #   - $request_headers
   # rewrite fragment:
-  #   - $rewrite_rule
-  #   - $rewrite_cond
+  #   - $rewrites
   # scriptalias fragment:
   #   - $scriptalias
   #   - $scriptaliases

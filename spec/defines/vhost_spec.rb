@@ -24,8 +24,8 @@ describe 'apache::vhost', :type => :define do
       end
       let :params do default_params end
       let :facts do default_facts end
-      it { should include_class("apache") }
-      it { should include_class("apache::params") }
+      it { should contain_class("apache") }
+      it { should contain_class("apache::params") }
     end
     context "on Debian based systems" do
       let :default_facts do
@@ -37,8 +37,8 @@ describe 'apache::vhost', :type => :define do
       end
       let :params do default_params end
       let :facts do default_facts end
-      it { should include_class("apache") }
-      it { should include_class("apache::params") }
+      it { should contain_class("apache") }
+      it { should contain_class("apache::params") }
       it { should contain_file("25-rspec.example.com.conf").with(
         :ensure => 'present',
         :path   => '/etc/apache2/sites-available/25-rspec.example.com.conf'
@@ -59,8 +59,8 @@ describe 'apache::vhost', :type => :define do
       end
       let :params do default_params end
       let :facts do default_facts end
-      it { should include_class("apache") }
-      it { should include_class("apache::params") }
+      it { should contain_class("apache") }
+      it { should contain_class("apache::params") }
       it { should contain_file("25-rspec.example.com.conf").with(
         :ensure => 'present',
         :path   => '/usr/local/etc/apache22/Vhosts/25-rspec.example.com.conf'
@@ -77,8 +77,8 @@ describe 'apache::vhost', :type => :define do
     end
     describe 'basic assumptions' do
       let :params do default_params end
-      it { should include_class("apache") }
-      it { should include_class("apache::params") }
+      it { should contain_class("apache") }
+      it { should contain_class("apache::params") }
       it { should contain_apache__listen(params[:port]) }
       it { should contain_apache__namevirtualhost("*:#{params[:port]}") }
     end
@@ -168,6 +168,12 @@ describe 'apache::vhost', :type => :define do
           :match => [/CustomLog \/fake\/log\//,/ErrorLog \/fake\/log\//],
         },
         {
+          :title => 'should accept log_level',
+          :attr  => 'log_level',
+          :value => 'info',
+          :match => [/LogLevel info/],
+        },
+        {
           :title => 'should accept pipe destination for access log',
           :attr  => 'access_log_pipe',
           :value => '| /bin/fake/logging',
@@ -222,12 +228,48 @@ describe 'apache::vhost', :type => :define do
           :notmatch => [/ErrorLog.+$/],
         },
         {
+          :title    => 'should set ErrorDocument 503',
+          :attr     => 'error_documents',
+          :value    => [ { 'error_code' => '503', 'document' => '"Go away, the backend is broken."'}],
+          :match => [/^  ErrorDocument 503 "Go away, the backend is broken."$/],
+        },
+        {
+          :title    => 'should set ErrorDocuments 503 407',
+          :attr     => 'error_documents',
+          :value    => [
+            { 'error_code' => '503', 'document' => '/service-unavail'},
+            { 'error_code' => '407', 'document' => 'https://example.com/proxy/login'},
+          ],
+          :match => [
+            /^  ErrorDocument 503 \/service-unavail$/,
+            /^  ErrorDocument 407 https:\/\/example\.com\/proxy\/login$/,
+          ],
+        },
+        {
+          :title    => 'should set ErrorDocument 503 in directory',
+          :attr     => 'directories',
+          :value    => { 'path' => '/srv/www', 'error_documents' => [{ 'error_code' => '503', 'document' => '"Go away, the backend is broken."'}] },
+          :match => [/^    ErrorDocument 503 "Go away, the backend is broken."$/],
+        },
+        {
+          :title    => 'should set ErrorDocuments 503 407 in directory',
+          :attr     => 'directories',
+          :value    => { 'path' => '/srv/www', 'error_documents' =>
+          [
+            { 'error_code' => '503', 'document' => '/service-unavail'},
+            { 'error_code' => '407', 'document' => 'https://example.com/proxy/login'},
+          ]},
+          :match => [
+            /^    ErrorDocument 503 \/service-unavail$/,
+            /^    ErrorDocument 407 https:\/\/example\.com\/proxy\/login$/,
+          ],
+        },
+        {
           :title => 'should accept a scriptalias',
           :attr  => 'scriptalias',
           :value => '/usr/scripts',
           :match => [
-            /^  ScriptAlias \/cgi-bin\/ \/usr\/scripts\/$/,
-            /^  <Directory \/usr\/scripts>$/,
+            /^  ScriptAlias \/cgi-bin\/ \/usr\/scripts$/,
           ],
         },
         {
@@ -235,21 +277,74 @@ describe 'apache::vhost', :type => :define do
           :attr     => 'scriptaliases',
           :value    => { 'alias' => '/blah/', 'path' => '/usr/scripts' },
           :match    => [
-            /^  ScriptAlias \/blah\/ \/usr\/scripts\/$/,
-            /^  <Directory \/usr\/scripts>$/,
+            /^  ScriptAlias \/blah\/ \/usr\/scripts$/,
           ],
           :nomatch  => [/ScriptAlias \/cgi\-bin\//],
         },
         {
           :title    => 'should accept multiple scriptaliases',
           :attr     => 'scriptaliases',
-          :value    => [ { 'alias' => '/blah/', 'path' => '/usr/scripts' }, { 'alias' => '/blah2/', 'path' => '/usr/scripts' } ],
+          :value    => [ { 'alias' => '/blah', 'path' => '/usr/scripts' }, { 'alias' => '/blah2', 'path' => '/usr/scripts' } ],
           :match    => [
-            /^  ScriptAlias \/blah\/ \/usr\/scripts\/$/,
-            /^  ScriptAlias \/blah2\/ \/usr\/scripts\/$/,
-            /^  <Directory \/usr\/scripts>$/,
+            /^  ScriptAlias \/blah \/usr\/scripts$/,
+            /^  ScriptAlias \/blah2 \/usr\/scripts$/,
           ],
           :nomatch  => [/ScriptAlias \/cgi\-bin\//],
+        },
+        {
+          :title    => 'should accept multiple scriptaliases with and without trailing slashes',
+          :attr     => 'scriptaliases',
+          :value    => [ { 'alias' => '/blah', 'path' => '/usr/scripts' }, { 'alias' => '/blah2/', 'path' => '/usr/scripts2/' } ],
+          :match    => [
+            /^  ScriptAlias \/blah \/usr\/scripts$/,
+            /^  ScriptAlias \/blah2\/ \/usr\/scripts2\/$/,
+          ],
+          :nomatch  => [/ScriptAlias \/cgi\-bin\//],
+        },
+        {
+          :title    => 'should accept a ScriptAliasMatch directive',
+          :attr     => 'scriptaliases',
+          ## XXX As mentioned above, rspec-puppet drops constructs like $1.
+          ## Thus, these tests don't work as they should. As a workaround we
+          ## use FOO instead of $1 here.
+          :value    => [ { 'aliasmatch' => '^/cgi-bin(.*)', 'path' => '/usr/local/apache/cgi-binFOO' } ],
+          :match    => [
+            /^  ScriptAliasMatch \^\/cgi-bin\(\.\*\) \/usr\/local\/apache\/cgi-binFOO$/
+          ],
+        },
+        {
+          :title    => 'should accept multiple ScriptAliasMatch directives',
+          :attr     => 'scriptaliases',
+          ## XXX As mentioned above, rspec-puppet drops constructs like $1.
+          ## Thus, these tests don't work as they should. As a workaround we
+          ## use FOO instead of $1 here.
+          :value    => [
+            { 'aliasmatch' => '^/cgi-bin(.*)', 'path' => '/usr/local/apache/cgi-binFOO' },
+            { 'aliasmatch' => '"(?x)^/git/(.*/(HEAD|info/refs|objects/(info/[^/]+|[0-9a-f]{2}/[0-9a-f]{38}|pack/pack-[0-9a-f]{40}\.(pack|idx))|git-(upload|receive)-pack))"', 'path' => '/var/www/bin/gitolite-suexec-wrapper/FOO' },
+          ],
+          :match    => [
+            /^  ScriptAliasMatch \^\/cgi-bin\(\.\*\) \/usr\/local\/apache\/cgi-binFOO$/,
+            /^  ScriptAliasMatch "\(\?x\)\^\/git\/\(\.\*\/\(HEAD\|info\/refs\|objects\/\(info\/\[\^\/\]\+\|\[0-9a-f\]\{2\}\/\[0-9a-f\]\{38\}\|pack\/pack-\[0-9a-f\]\{40\}\\\.\(pack\|idx\)\)\|git-\(upload\|receive\)-pack\)\)" \/var\/www\/bin\/gitolite-suexec-wrapper\/FOO$/,
+          ],
+        },
+        {
+          :title    => 'should accept mixed ScriptAlias and ScriptAliasMatch directives',
+          :attr     => 'scriptaliases',
+          ## XXX As mentioned above, rspec-puppet drops constructs like $1.
+          ## Thus, these tests don't work as they should. As a workaround we
+          ## use FOO instead of $1 here.
+          :value    => [
+            { 'aliasmatch' => '"(?x)^/git/(.*/(HEAD|info/refs|objects/(info/[^/]+|[0-9a-f]{2}/[0-9a-f]{38}|pack/pack-[0-9a-f]{40}\.(pack|idx))|git-(upload|receive)-pack))"', 'path' => '/var/www/bin/gitolite-suexec-wrapper/FOO' },
+            { 'alias' => '/git', 'path' => '/var/www/gitweb/index.cgi' },
+            { 'aliasmatch' => '^/cgi-bin(.*)', 'path' => '/usr/local/apache/cgi-binFOO' },
+            { 'alias' => '/trac', 'path' => '/etc/apache2/trac.fcgi' },
+          ],
+          :match    => [
+            /^  ScriptAliasMatch "\(\?x\)\^\/git\/\(\.\*\/\(HEAD\|info\/refs\|objects\/\(info\/\[\^\/\]\+\|\[0-9a-f\]\{2\}\/\[0-9a-f\]\{38\}\|pack\/pack-\[0-9a-f\]\{40\}\\\.\(pack\|idx\)\)\|git-\(upload\|receive\)-pack\)\)" \/var\/www\/bin\/gitolite-suexec-wrapper\/FOO$/,
+            /^  ScriptAlias \/git \/var\/www\/gitweb\/index\.cgi$/,
+            /^  ScriptAliasMatch \^\/cgi-bin\(\.\*\) \/usr\/local\/apache\/cgi-binFOO$/,
+            /^  ScriptAlias \/trac \/etc\/apache2\/trac.fcgi$/,
+          ],
         },
         {
           :title    => 'should accept proxy destinations',
@@ -266,10 +361,13 @@ describe 'apache::vhost', :type => :define do
         {
           :title    => 'should accept proxy_pass hash',
           :attr     => 'proxy_pass',
-          :value    => { 'path' => '/path-a', 'url' => 'http://fake.com/a/' },
+          :value    => { 'path' => '/path-a', 'url' => 'http://fake.com/a' },
           :match    => [
-            /^  ProxyPass \/path-a http:\/\/fake.com\/a\/$/,
-            /    ProxyPassReverse \//,
+            /^  ProxyPass \/path-a http:\/\/fake.com\/a$/,
+            /^  <Location \/path-a>$/,
+            /^    ProxyPassReverse \/$/,
+            /^  <\/Location>$/,
+
           ],
           :notmatch => [/ProxyPass .+!$/],
         },
@@ -277,16 +375,16 @@ describe 'apache::vhost', :type => :define do
           :title    => 'should accept proxy_pass array of hash',
           :attr     => 'proxy_pass',
           :value    => [
-            { 'path' => '/path-a', 'url' => 'http://fake.com/a/' },
-            { 'path' => '/path-b', 'url' => 'http://fake.com/b/' },
+            { 'path' => '/path-a/', 'url' => 'http://fake.com/a/' },
+            { 'path' => '/path-b', 'url' => 'http://fake.com/b' },
           ],
           :match    => [
-            /^  ProxyPass \/path-a http:\/\/fake.com\/a\/$/,
+            /^  ProxyPass \/path-a\/ http:\/\/fake.com\/a\/$/,
             /^  <Location \/path-a\/>$/,
             /^    ProxyPassReverse \/$/,
             /^  <\/Location>$/,
-            /^  ProxyPass \/path-b http:\/\/fake.com\/b\/$/,
-            /^  <Location \/path-b\/>$/,
+            /^  ProxyPass \/path-b http:\/\/fake.com\/b$/,
+            /^  <Location \/path-b>$/,
             /^    ProxyPassReverse \/$/,
             /^  <\/Location>$/,
           ],
@@ -315,6 +413,40 @@ describe 'apache::vhost', :type => :define do
           :attr  => 'rewrite_rule',
           :value => 'not a real rule',
           :match => [/^  RewriteRule not a real rule$/],
+        },
+        {
+          :title => 'should accept rewrite rules',
+          :attr  => 'rewrites',
+          :value => [{'rewrite_rule' => ['not a real rule']}],
+          :match => [/^  RewriteRule not a real rule$/],
+        },
+        {
+          :title => 'should accept rewrite comment',
+          :attr  => 'rewrites',
+          :value => [{'comment' => 'rewrite comment', 'rewrite_rule' => ['not a real rule']}],
+          :match => [/^  #rewrite comment/],
+        },
+        {
+          :title => 'should accept rewrite conditions',
+          :attr  => 'rewrites',
+          :value => [{'comment' => 'redirect IE', 'rewrite_cond' => ['%{HTTP_USER_AGENT} ^MSIE'], 'rewrite_rule' => ['^index\.html$ welcome.html'],}],
+          :match => [
+            /^  #redirect IE$/,
+            /^  RewriteCond %{HTTP_USER_AGENT} \^MSIE$/,
+            /^  RewriteRule \^index\\\.html\$ welcome.html$/,
+          ],
+        },
+        {
+          :title => 'should accept multiple rewrites',
+          :attr  => 'rewrites',
+          :value => [
+            {'rewrite_rule' => ['not a real rule']},
+            {'rewrite_rule' => ['not a real rule two']},
+          ],
+          :match => [
+            /^  RewriteRule not a real rule$/,
+            /^  RewriteRule not a real rule two$/,
+          ],
         },
         {
           :title => 'should block scm',
@@ -359,10 +491,86 @@ describe 'apache::vhost', :type => :define do
           ],
         },
         {
+          :title => 'should accept an aliasmatch hash',
+          :attr  => 'aliases',
+          ## XXX As mentioned above, rspec-puppet drops the $1. Thus, these
+          # tests don't work.
+          #:value => { 'aliasmatch' => '^/image/(.*).gif', 'path' => '/files/gifs/$1.gif' },
+          #:match => [/^  AliasMatch \^\/image\/\(\.\*\)\.gif \/files\/gifs\/\$1\.gif$/],
+        },
+        {
+          :title => 'should accept a array of alias and aliasmatch hashes mixed',
+          :attr  => 'aliases',
+          ## XXX As mentioned above, rspec-puppet drops the $1. Thus, these
+          # tests don't work.
+          #:value => [
+          #  { 'alias' => '/css', 'path' => '/files/css' },
+          #  { 'aliasmatch' => '^/image/(.*).gif', 'path' => '/files/gifs/$1.gif' },
+          #  { 'aliasmatch' => '^/image/(.*).jpg', 'path' => '/files/jpgs/$1.jpg' },
+          #  { 'alias' => '/image', 'path' => '/files/images' },
+          #],
+          #:match => [
+          #  /^  Alias \/css \/files\/css$/,
+          #  /^  AliasMatch \^\/image\/\(.\*\)\.gif \/files\/gifs\/\$1\.gif$/,
+          #  /^  AliasMatch \^\/image\/\(.\*\)\.jpg \/files\/jpgs\/\$1\.jpg$/,
+          #  /^  Alias \/image \/files\/images$/
+          #],
+        },
+        {
+          :title => 'should accept multiple additional includes',
+          :attr  => 'additional_includes',
+          :value => [
+            '/tmp/proxy_group_a',
+            '/tmp/proxy_group_b',
+            '/tmp/proxy_group_c',
+          ],
+          :match => [
+            /^  Include \/tmp\/proxy_group_a$/,
+            /^  Include \/tmp\/proxy_group_b$/,
+            /^  Include \/tmp\/proxy_group_c$/,
+          ],
+        },
+        {
           :title => 'should accept a suPHP_Engine',
           :attr  => 'suphp_engine',
           :value => 'on',
           :match => [/^  suPHP_Engine on$/],
+        },
+        {
+          :title => 'should accept a php_admin_flags',
+          :attr  => 'php_admin_flags',
+          :value => { 'php_engine' => 'on' },
+          :match => [/^  php_admin_flag php_engine on$/],
+        },
+        {
+          :title => 'should accept php_admin_values',
+          :attr  => 'php_admin_values',
+          :value => { 'open_basedir' => '/srv/web/www.com/:/usr/share/pear/' },
+          :match => [/^  php_admin_value open_basedir \/srv\/web\/www.com\/:\/usr\/share\/pear\/$/],
+        },
+        {
+          :title => 'should accept php_admin_flags in directories',
+          :attr  => 'directories',
+          :value => {
+						'path'            => '/srv/www',
+						'php_admin_flags' => { 'php_engine' => 'on' }
+					},
+          :match => [/^    php_admin_flag php_engine on$/],
+        },
+        {
+          :title => 'should accept php_admin_values',
+          :attr  => 'php_admin_values',
+          :value => { 'open_basedir' => '/srv/web/www.com/:/usr/share/pear/' },
+          :match => [/^  php_admin_value open_basedir \/srv\/web\/www.com\/:\/usr\/share\/pear\/$/],
+        },
+        {
+          :title => 'should accept php_admin_values in directories',
+          :attr  => 'directories',
+          :value => {
+            'path'             => '/srv/www',
+            'php_admin_values' => { 'open_basedir' => '/srv/web/www.com/:/usr/share/pear/' }
+          },
+          :match => [/^    php_admin_value open_basedir \/srv\/web\/www.com\/:\/usr\/share\/pear\/$/],
         },
         {
           :title => 'should accept a wsgi script alias',
@@ -512,6 +720,12 @@ describe 'apache::vhost', :type => :define do
             /^  VirtualDocumentRoot \/not\/default$/,
           ],
         },
+        {
+          :title => 'should contain environment variables',
+          :attr  => 'access_log_env_var',
+          :value => 'admin',
+          :match => [/CustomLog \/var\/log\/.+_access\.log combined env=admin$/]
+        },
 
       ].each do |param|
         describe "when #{param[:attr]} is #{param[:value]}" do
@@ -625,8 +839,20 @@ describe 'apache::vhost', :type => :define do
         {
             :title => 'should accept setting SSLOptions with an array',
             :attr  => 'ssl_options',
-            :value => ['+StdEnvVars','+ExportCertData'],
-            :match => [/^  SSLOptions \+StdEnvVars \+ExportCertData/],
+            :value => ['+StrictRequire','+ExportCertData'],
+            :match => [/^  SSLOptions \+StrictRequire \+ExportCertData/],
+        },
+        {
+            :title => 'should accept setting SSLOptions with a string in directories',
+            :attr  => 'directories',
+            :value => { 'path' => '/srv/www', 'ssl_options' => '+ExportCertData'},
+            :match => [/^    SSLOptions \+ExportCertData$/],
+        },
+        {
+            :title => 'should accept setting SSLOptions with an array in directories',
+            :attr  => 'directories',
+            :value => { 'path' => '/srv/www', 'ssl_options' => ['-StdEnvVars','+ExportCertData']},
+            :match => [/^    SSLOptions -StdEnvVars \+ExportCertData/],
         },
       ].each do |param|
         describe "when #{param[:attr]} is #{param[:value]} with SSL" do
@@ -700,6 +926,35 @@ describe 'apache::vhost', :type => :define do
         end
       end
 
+      describe 'when rewrites are specified' do
+        let :params do default_params.merge({
+          :rewrites => [
+            {
+              'comment'       => 'test rewrites',
+              'rewrite_cond' => ['%{HTTP_USER_AGENT} ^Lynx/ [OR]', '%{HTTP_USER_AGENT} ^Mozilla/[12]'],
+              'rewrite_rule' => ['^index\.html$ welcome.html', '^index\.cgi$ index.php'],
+            }
+          ]
+        }) end
+        it 'should set RewriteConds and RewriteRules' do
+          should contain_file("25-#{title}.conf").with_content(
+            /^  #test rewrites$/
+          )
+          should contain_file("25-#{title}.conf").with_content(
+            /^  RewriteCond %\{HTTP_USER_AGENT\} \^Lynx\/ \[OR\]$/
+          )
+          should contain_file("25-#{title}.conf").with_content(
+            /^  RewriteCond %\{HTTP_USER_AGENT\} \^Mozilla\/\[12\]$/
+          )
+          should contain_file("25-#{title}.conf").with_content(
+            /^  RewriteRule \^index\\.html\$ welcome.html$/
+          )
+          should contain_file("25-#{title}.conf").with_content(
+            /^  RewriteRule \^index\\.cgi\$ index.php$/
+          )
+        end
+      end
+
       describe 'when rewrite_rule and rewrite_cond are specified' do
         let :params do default_params.merge({
           :rewrite_cond => '%{HTTPS} off',
@@ -732,6 +987,20 @@ describe 'apache::vhost', :type => :define do
         it 'should set suphp_addhandler' do
           should contain_file("25-#{title}.conf").with_content(
             /^  suPHP_AddHandler x-httpd-php/
+          )
+        end
+      end
+
+      describe 'when suphp_engine is on and suphp { user & group } is specified' do
+        let :params do default_params.merge({
+          :suphp_engine     => 'on',
+          :directories      => { 'path' => '/srv/www',
+            'suphp' => { 'user' => 'myappuser', 'group' => 'myappgroup' },
+          }
+        }) end
+        it 'should set suphp_UserGroup' do
+          should contain_file("25-#{title}.conf").with_content(
+            /^    suPHP_UserGroup myappuser myappgroup/
           )
         end
       end

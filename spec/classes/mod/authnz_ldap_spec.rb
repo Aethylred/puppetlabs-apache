@@ -11,17 +11,17 @@ describe 'apache::mod::authnz_ldap', :type => :class do
         :concat_basedir         => '/dne',
       }
     end
-    it { should include_class("apache::params") }
-    it { should include_class("apache::mod::ldap") }
+    it { should contain_class("apache::params") }
+    it { should contain_class("apache::mod::ldap") }
     it { should contain_apache__mod('authnz_ldap') }
 
     context 'default verifyServerCert' do
-      it { should contain_file('authnz_ldap.conf').with_ensure('absent') }
+      it { should contain_file('authnz_ldap.conf').with_content(/^LDAPVerifyServerCert On$/) }
     end
 
     context 'verifyServerCert = false' do
       let(:params) { { :verifyServerCert => false } }
-      it { should contain_file('authnz_ldap.conf').with_content('LDAPVerifyServerCert off') }
+      it { should contain_file('authnz_ldap.conf').with_content(/^LDAPVerifyServerCert Off$/) }
     end
 
     context 'verifyServerCert = wrong' do
@@ -40,17 +40,17 @@ describe 'apache::mod::authnz_ldap', :type => :class do
         :concat_basedir         => '/dne',
       }
     end
-    it { should include_class("apache::params") }
-    it { should include_class("apache::mod::ldap") }
+    it { should contain_class("apache::params") }
+    it { should contain_class("apache::mod::ldap") }
     it { should contain_apache__mod('authnz_ldap') }
 
     context 'default verifyServerCert' do
-      it { should contain_file('authnz_ldap.conf').with_ensure('absent') }
+      it { should contain_file('authnz_ldap.conf').with_content(/^LDAPVerifyServerCert On$/) }
     end
 
     context 'verifyServerCert = false' do
       let(:params) { { :verifyServerCert => false } }
-      it { should contain_file('authnz_ldap.conf').with_content('LDAPVerifyServerCert off') }
+      it { should contain_file('authnz_ldap.conf').with_content(/^LDAPVerifyServerCert Off$/) }
     end
 
     context 'verifyServerCert = wrong' do
